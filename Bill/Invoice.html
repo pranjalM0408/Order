@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Generator</title>
+  <style>
+    .container {
+      width: 80%;
+      margin: 20px auto;
+      padding: 20px;
+      border: 2px solid #000;
+    }
+
+    .header, .goods-table, .total-section {
+      margin-bottom: 20px;
+    }
+
+    .header, .goods-table {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .seller-info, .buyer-info, .invoice-info {
+      border: 1px solid #000;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .invoice-info {
+      width: 35%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .invoice-info div {
+      margin-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table th, .table td {
+      border: 1px solid #000;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .center {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .add-row-btn, .generate-btn {
+      margin: 10px 0;
+      padding: 5px 10px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    
+    <div class="header">
+     
+      <div>
+        <div class="seller-info">
+          <strong>Seller:</strong> GB Traders<br>
+          245, Karhi, MP 451220<br>
+          GSTIN: 05XXXXXXXXX78
+        </div>
+        
+       
+        <div class="buyer-info">
+          <strong>Buyer Details:</strong><br>
+          Name: <input type="text" id="buyerName"><br>
+          Address: <input type="text" id="buyerAddress"><br>
+          Mobile No: <input type="text" id="buyerMobile">
+        </div>
+      </div>
+
+
+      <div class="invoice-info">
+        <div>
+          <span>Order No:</span>
+          <input type="text" id="orderNo">
+        </div>
+        <div>
+          <span>Date:</span>
+          <input type="date" id="invoiceDate">
+        </div>
+        <div>
+          <span>Mode of Payment:</span>
+          <input type="text" id="paymentMode">
+        </div>
+      </div>
+    </div>
+
+   
+    <div class="goods-table">
+      <table class="table" id="goodsTable">
+        <thead>
+          <tr>
+            <th>S.No.</th>
+            <th>Description of Goods</th>
+            <th>Quantity</th>
+            <th>Rate per piece</th>
+            <th>Total Amount</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="goodsTableBody">
+
+          <tr>
+            <td>1</td>
+            <td><input type="text" class="goodsDescription"></td>
+            <td><input type="number" class="quantity" oninput="calculateAmount(this)"></td>
+            <td><input type="number" class="ratePerPiece" oninput="calculateAmount(this)"></td>
+            <td><input type="number" class="totalAmount" readonly></td>
+            <td><button onclick="removeRow(this)">Remove</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <button class="add-row-btn" onclick="addRow()">Add Another Good</button>
+    </div>
+
+    <div class="total-section">
+      <strong>Total Amount: </strong><span id="totalAmount">0.00</span>
+    </div>
+
+    <div class="center">
+      <button class="generate-btn" onclick="generateInvoice()">Generate Invoice</button>
+    </div>
+  </div>
+
+  <script>
+    let goodsCount = 1; 
+
+    function addRow() {
+      goodsCount++;
+      const tableBody = document.getElementById('goodsTableBody');
+      const row = document.createElement('tr');
+
+      row.innerHTML = `
+        <td>${goodsCount}</td>
+        <td><input type="text" class="goodsDescription"></td>
+        <td><input type="number" class="quantity" oninput="calculateAmount(this)"></td>
+        <td><input type="number" class="ratePerPiece" oninput="calculateAmount(this)"></td>
+        <td><input type="number" class="totalAmount" readonly></td>
+        <td><button onclick="removeRow(this)">Remove</button></td>
+      `;
+
+      tableBody.appendChild(row);
+    }
+
+    function calculateAmount(element) {
+      const row = element.parentElement.parentElement;
+      const quantity = row.querySelector('.quantity').value;
+      const ratePerPiece = row.querySelector('.ratePerPiece').value;
+      const totalAmount = quantity * ratePerPiece;
+      row.querySelector('.totalAmount').value = totalAmount.toFixed(2);
+      updateTotalAmount();
+    }
+
+    function removeRow(button) {
+      const row = button.parentElement.parentElement;
+      row.remove();
+      updateRowNumbers();
+      updateTotalAmount();
+    }
+
+    function updateRowNumbers() {
+      goodsCount = 0;
+      document.querySelectorAll('#goodsTableBody tr').forEach((row, index) => {
+        row.cells[0].innerText = index + 1;
+        goodsCount++;
+      });
+    }
+
+    function updateTotalAmount() {
+      let total = 0;
+      document.querySelectorAll('.totalAmount').forEach(input => {
+        total += parseFloat(input.value) || 0;
+      });
+      document.getElementById('totalAmount').textContent = total.toFixed(2);
+    }
+
+    function generateInvoice() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const buyerName = document.getElementById('buyerName').value;
+  const buyerAddress = document.getElementById('buyerAddress').value;
+  const buyerMobile = document.getElementById('buyerMobile').value;
+  const orderNo = document.getElementById('orderNo').value;
+  const invoiceDate = document.getElementById('invoiceDate').value;
+  const paymentMode = document.getElementById('paymentMode').value;
+
+  let x = 10, y = 10;
+
+  const rows = document.querySelectorAll('#goodsTableBody tr');
+  const goodsRowHeight = 10;
+  const headerHeight = 10;
+  const footerHeight = 15; 
+  const numGoodsRows = rows.length;
+  const blockHeight = 50 + (numGoodsRows * goodsRowHeight) + headerHeight + footerHeight;
+
+  doc.rect(x, y, 190, blockHeight);
+
+  doc.setFontSize(10);
+  doc.text('GB Traders', x + 5, y + 10);
+  doc.text('245, Karhi, MP 451220', x + 5, y + 15);
+  doc.text('GSTIN: 05XXXXXXXXX78', x + 5, y + 20);
+
+  // Draw horizontal line separating seller and buyer details
+  const buyerDetailsLineY = y + 50;
+  doc.line(x, buyerDetailsLineY, x + 190, buyerDetailsLineY);
+
+  // Print buyer details and ensure the address stays on the left side
+  doc.text('Buyer Name: ' + buyerName, x + 5, y + 30);
+  doc.text('Address: ', x + 5, y + 35);
+  doc.text(buyerAddress, x + 20, y + 35, { maxWidth: 70 }); // Keeps address within the left side block
+  doc.text('Mob No.: ' + buyerMobile, x + 5, y + 45);
+
+  // Right side: Invoice details
+  doc.text('Order No.: ' + orderNo, x + 110, y + 10);
+  doc.text('Date: ' + invoiceDate, x + 110, y + 15);
+  doc.text('Mode of Payment: ' + paymentMode, x + 110, y + 20);
+
+  // Draw vertical line separating the left and right sections
+  doc.line(x + 95, y, x + 95, buyerDetailsLineY); // Extend vertical line only up to buyer details line
+
+  // Move below buyer details for the goods table
+  y += 55;
+
+  // Draw goods table headers
+  doc.setFontSize(10);
+  doc.text('S.No.', x + 5, y);
+  doc.text('Description of Goods', x + 30, y);
+  doc.text('Quantity', x + 90, y);
+  doc.text('Rate', x + 130, y);
+  doc.text('Amount', x + 160, y);
+
+  // Draw horizontal line below the headers
+  doc.line(x, y + 3, x + 190, y + 3);
+
+  // Add goods rows
+  let goodsY = y + 10;
+  let totalAmount = 0;
+
+  rows.forEach((row, index) => {
+    const description = row.querySelector('.goodsDescription').value;
+    const quantity = row.querySelector('.quantity').value;
+    const rate = row.querySelector('.ratePerPiece').value;
+    const amount = row.querySelector('.totalAmount').value;
+
+    totalAmount += parseFloat(amount);
+
+    doc.text(String(index + 1), x + 5, goodsY);
+    doc.text(description, x + 30, goodsY);
+    doc.text(quantity, x + 90, goodsY);
+    doc.text(rate, x + 130, goodsY);
+    doc.text(amount, x + 160, goodsY);
+
+    goodsY += goodsRowHeight;
+  });
+
+  // Draw vertical lines for the goods table columns, touching the horizontal line
+  doc.line(x + 25, y - 5, x + 25, goodsY); // After S.No.
+  doc.line(x + 85, y - 5, x + 85, goodsY); // After Description
+  doc.line(x + 125, y - 5, x + 125, goodsY); // After Quantity
+  doc.line(x + 155, y - 5, x + 155, goodsY); // After Rate
+
+  // Close the table with a horizontal line below the goods
+  doc.line(x, goodsY, x + 190, goodsY);
+
+  // Total amount below the goods table
+  doc.text('Total Amount: ' + totalAmount.toFixed(2), x + 130, goodsY + 10);
+
+  doc.save('invoice.pdf');
+}
+
+  </script>
+</body>
+</html>
